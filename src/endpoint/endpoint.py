@@ -1,64 +1,56 @@
 """
-Endpoint for CRUD operations on books.
+Endpoints for the book table.
 
-This module provides endpoints for creating, reading, updating, and deleting books.
-
-Endpoints:
-- POST /create: Create a new book
-- GET /{book_id}: Get a book by ID
-- GET /: Get all books
-- PUT /{book_id}: Update a book by ID
-- DELETE /{book_id}: Delete a book by ID
+This module provides the endpoints for the book table.
 """
 
-from fastapi import APIRouter, HTTPException
-from sqlalchemy.ext.asyncio import AsyncSession
 from uuid import UUID
-from src.db import DepSession
-from src.service.crud import book
+from fastapi import APIRouter, Depends, HTTPException, status, Query
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from src.db.database import get_db
 from src.schemas.book_schemas import BookCreate, BookUpdate, BookResponse
+from src.service.crud import book
 
-router = APIRouter(prefix="/crud", tags=["CRUD"])
+router = APIRouter(prefix="/books", tags=["books"])
 
 
-@router.post("/create", response_model=BookResponse, status_code=201)
-async def create_book(
-    *, db: AsyncSession = DepSession, book_in: BookCreate
-) -> BookResponse:
-    try:
-        return await book.create(db, obj_in=book_in)
-    except:
-        raise HTTPException(status_code=400, detail="Could not create book")
+@router.post("/", response_model=BookResponse, status_code=status.HTTP_201_CREATED)
+async def create_book(book_in: BookCreate, db: AsyncSession = Depends(get_db)):
+    return await book.create(db=db, obj_in=book_in)
 
 
 @router.get("/{book_id}", response_model=BookResponse)
-async def get_book(*, db: AsyncSession = DepSession, book_id: UUID) -> BookResponse:
-    try:
-        return await book.get(db, book_id=book_id)
-    except:
+async def read_book(book_id: UUID, db: AsyncSession = Depends(get_db)):
+    obj = await book.get(db, book_id)
+    if not obj:
         raise HTTPException(status_code=404, detail="Book not found")
+    return obj
 
 
 @router.get("/", response_model=list[BookResponse])
 async def read_books(
-    *, db: AsyncSession = DepSession, skip: int = 0, limit: int = 100
-) -> list[BookResponse]:
-    return await book.get_multi(db, skip=skip, limit=limit)
+    db: AsyncSession = Depends(get_db),
+    skip: int = 0,
+    limit: int = 100,
+    search: str = Query(None, description="Search by name"),
+):
+    return await book.get_multi(db, skip=skip, limit=limit, search=search)
 
 
-@router.put("/{book_id}", response_model=BookResponse)
+@router.patch("/{book_id}", response_model=BookResponse)
 async def update_book(
-    *, db: AsyncSession = DepSession, book_id: UUID, book_in: BookUpdate
-) -> BookResponse:
-    try:
-        return await book.update(db, db_obj=book_id, obj_in=book_in)
-    except:
-        raise HTTPException(status_code=500, detail="Server error")
-
-
-@router.delete("/{book_id}", response_model=BookResponse)
-async def delete_book(*, db: AsyncSession = DepSession, book_id: UUID) -> BookResponse:
-    try:
-        return await book.remove(db, book_id=book_id)
-    except:
+    book_id: UUID, book_in: BookUpdate, db: AsyncSession = Depends(get_db)
+):
+    obj = await book.get(db, book_id)
+    if not obj:
         raise HTTPException(status_code=404, detail="Book not found")
+    return await book.update(db=db, db_obj=obj, obj_in=book_in)
+
+
+@router.delete("/{book_id}", status_code=200)
+async def delete_book(book_id: UUID, db: AsyncSession = Depends(get_db)):
+    obj = await book.remove(db=db, book_id=book_id)
+    if not obj:
+        raise HTTPException(status_code=404, detail="Book not found or already deleted")
+    return {"status": "deleted", "id": obj.id, "deleted_at": obj.deleted_at}
