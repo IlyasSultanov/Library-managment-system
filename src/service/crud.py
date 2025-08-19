@@ -8,6 +8,7 @@ from uuid import UUID
 from typing import Optional, List
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.sql import and_
 
 from src.models.model_book import Book
 from src.schemas.book_schemas import BookCreate, BookUpdate
@@ -18,12 +19,11 @@ class CRUDBook:
         self.model = model
 
     async def get(self, db: AsyncSession, book_id: UUID) -> Optional[Book]:
-        result = await db.execute(
-            select(self.model).where(
-                self.model.id == book_id, self.model.deleted_at.is_(None)
-            )
+        query = select(self.model).where(
+            and_(self.model.id == book_id, self.model.deleted_at.is_(None))
         )
-        return result.scalars().first()
+        book = await db.execute(query).scalar_one_or_none()
+        return book 
 
     async def get_multi(
         self,
