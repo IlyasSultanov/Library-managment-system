@@ -1,3 +1,9 @@
+"""
+API module for the application.
+
+This module provides the API router for the application.
+"""
+
 from fastapi import APIRouter
 from src.endpoint.endpoint import router as crud_book_router
 
