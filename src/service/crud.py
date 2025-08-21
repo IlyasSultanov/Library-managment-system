@@ -6,7 +6,7 @@ This module provides the CRUD operations for the book table.
 
 from uuid import UUID
 from typing import Optional, List
-from sqlalchemy import select, update
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import and_
 
@@ -69,5 +69,5 @@ class CRUDBook:
         return obj
 
 
-# Использование
+# Using
 book = CRUDBook(model=Book)
